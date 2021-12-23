@@ -22,7 +22,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 52,
-  "iteration": 1640272600161,
+  "iteration": 1640278118309,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -201,7 +201,7 @@
           "exemplar": true,
           "expr": "histogram_quantile(\n  0.95, \n  sum(\n      rate(gitpod_ws_manager_workspace_startup_seconds_bucket{type!=\"GHOST\",type!=\"PREBUILD\"}[1d])\n    ) by (le, cluster)\n  )",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{cluster}}",
           "refId": "A"
         }
       ],
@@ -246,6 +246,6 @@
   "timezone": "",
   "title": "Success Criteria",
   "uid": "jgjwvIc7k",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
