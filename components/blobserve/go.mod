@@ -10,7 +10,7 @@ require (
 	github.com/gitpod-io/gitpod/registry-facade v0.0.0-00010101000000-000000000000
 	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.8.0
-	github.com/opencontainers/image-spec v1.0.1
+	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/cobra v1.1.3
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
