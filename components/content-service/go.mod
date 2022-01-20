@@ -16,7 +16,7 @@ require (
 	github.com/moby/moby v20.10.7+incompatible
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.0.1
+	github.com/opencontainers/image-spec v1.0.2
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/cobra v1.1.3
