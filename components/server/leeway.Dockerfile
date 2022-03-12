@@ -2,7 +2,7 @@
 # Licensed under the GNU Affero General Public License (AGPL).
 # See License-AGPL.txt in the project root for license information.
 
-FROM node:16.13.0-slim as builder
+FROM node:gallium-buster-slim as builder
 
 RUN apt-get update && apt-get install -y build-essential python3
 
@@ -14,7 +14,7 @@ RUN /installer/install.sh
 FROM golang:1.17.2 as oci-tool-builder
 RUN go install github.com/csweichel/oci-tool@v0.1.1
 
-FROM node:16.13.0-slim
+FROM node:gallium-buster-slim
 ENV NODE_OPTIONS="--unhandled-rejections=warn --max_old_space_size=2048"
 # Using ssh-keygen for RSA keypair generation
 RUN apt-get update && apt-get install -yq \
