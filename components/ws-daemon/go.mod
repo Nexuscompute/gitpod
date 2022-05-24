@@ -36,7 +36,7 @@ require (
 
 require (
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb
-	github.com/opencontainers/runc v1.1.0
+	github.com/opencontainers/runc v1.1.2
 )
 
 require (
