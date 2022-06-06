@@ -3,7 +3,7 @@ module github.com/gitpod-io/gitpod/registry-facade
 go 1.17
 
 require (
-	github.com/containerd/containerd v1.6.1
+	github.com/containerd/containerd v1.6.6
 	github.com/docker/cli v20.10.7+incompatible
 	github.com/docker/distribution v2.8.0+incompatible
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
@@ -23,7 +23,7 @@ require (
 	github.com/ipfs/interface-go-ipfs-core v0.6.2
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.0.2-0.20211117181255-693428a734f5
+	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
@@ -103,11 +103,12 @@ require (
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200123233031-1cdf64d27158 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.19.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa // indirect
