@@ -65,7 +65,7 @@
     "lodash.debounce": "^4.0.8",
     "longjohn": "^0.2.12",
     "minio": "^7.0.12",
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^3.2.10",
     "opentracing": "^0.14.4",
     "p-throttle": "^4.1.1",
     "passport": "^0.4.1",
