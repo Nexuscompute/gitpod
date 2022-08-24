@@ -2,13 +2,13 @@
 # Licensed under the Gitpod Enterprise Source Code License,
 # See License.enterprise.txt in the project root folder.
 
-FROM node:16.13.0-slim as builder
+FROM node:gallium-slim as builder
 COPY components-ee-payment-endpoint--app /installer/
 
 WORKDIR /app
 RUN /installer/install.sh
 
-FROM node:16.13.0-slim
+FROM node:gallium-slim
 ENV NODE_OPTIONS=--unhandled-rejections=warn
 EXPOSE 3000
 
