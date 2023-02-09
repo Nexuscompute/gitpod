@@ -21,7 +21,7 @@ RUN xcaddy build v2.6.2 \
   --with github.com/gitpod-io/gitpod/proxy/plugins/sshtunnel=/plugins/sshtunnel \
   --with github.com/gitpod-io/gitpod/proxy/plugins/frontend_dev=/plugins/frontend_dev
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 # Ensure latest packages are present, like security updates.
 RUN  apk upgrade --no-cache \
