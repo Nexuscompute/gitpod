@@ -4,7 +4,7 @@
 
 
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 RUN apk add --no-cache git bash ca-certificates
 COPY components-ee-agent-smith--app/agent-smith /app/
