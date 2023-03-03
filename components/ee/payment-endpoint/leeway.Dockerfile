@@ -4,13 +4,13 @@
 
 
 
-FROM node:16.13.0-slim as builder
+FROM node:16.14-slim as builder
 COPY components-ee-payment-endpoint--app /installer/
 
 WORKDIR /app
 RUN /installer/install.sh
 
-FROM node:16.13.0-slim
+FROM node:16.14-slim
 ENV NODE_OPTIONS=--unhandled-rejections=warn
 EXPOSE 3000
 
