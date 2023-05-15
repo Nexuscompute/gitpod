@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 2048 2048">
-	<circle fill-opacity="1" r="512" cx="1024" cy="1024" fill="#ffb45b"></circle>
-	<g transform="scale(1)"></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 2048 2048"><circle cx="1024" cy="1024" r="512" fill="#ffb45b" fill-opacity="1"/></svg>
