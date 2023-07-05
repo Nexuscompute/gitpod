@@ -9,7 +9,7 @@ RUN apk add --no-cache curl file \
   && chmod +x runc.amd64 \
   && if ! file runc.amd64 | grep -iq "ELF 64-bit LSB executable"; then echo "runc.amd64 is not a binary file"; exit 1;fi
 
-FROM ubuntu:22.04
+FROM ubuntu:22.10
 
 # trigger manual rebuild increasing the value
 ENV TRIGGER_REBUILD=1
