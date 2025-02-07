@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Gitpod GmbH. All rights reserved.
+// Copyright (c) 2025 Gitpod GmbH. All rights reserved.
 // Licensed under the GNU Affero General Public License (AGPL).
 // See License.AGPL.txt in the project root for license information.
 
@@ -79,6 +79,42 @@ public interface EnvironmentVariableServiceClientInterface {
       fun deleteConfigurationEnvironmentVariable(request: Envvar.DeleteConfigurationEnvironmentVariableRequest,
       headers: Headers = emptyMap()):
       ResponseMessage<Envvar.DeleteConfigurationEnvironmentVariableResponse>
+
+  /**
+   *  ListOrganizationEnvironmentVariables returns all environment variables in
+   *  an organization.
+   */
+  public suspend
+      fun listOrganizationEnvironmentVariables(request: Envvar.ListOrganizationEnvironmentVariablesRequest,
+      headers: Headers = emptyMap()):
+      ResponseMessage<Envvar.ListOrganizationEnvironmentVariablesResponse>
+
+  /**
+   *  UpdateOrganizationEnvironmentVariable updates an environment variable in
+   *  an organization.
+   */
+  public suspend
+      fun updateOrganizationEnvironmentVariable(request: Envvar.UpdateOrganizationEnvironmentVariableRequest,
+      headers: Headers = emptyMap()):
+      ResponseMessage<Envvar.UpdateOrganizationEnvironmentVariableResponse>
+
+  /**
+   *  CreateOrganizationEnvironmentVariable creates a new environment variable
+   *  in an organization.
+   */
+  public suspend
+      fun createOrganizationEnvironmentVariable(request: Envvar.CreateOrganizationEnvironmentVariableRequest,
+      headers: Headers = emptyMap()):
+      ResponseMessage<Envvar.CreateOrganizationEnvironmentVariableResponse>
+
+  /**
+   *  DeleteOrganizationEnvironmentVariable deletes an environment variable in
+   *  an organization.
+   */
+  public suspend
+      fun deleteOrganizationEnvironmentVariable(request: Envvar.DeleteOrganizationEnvironmentVariableRequest,
+      headers: Headers = emptyMap()):
+      ResponseMessage<Envvar.DeleteOrganizationEnvironmentVariableResponse>
 
   public suspend
       fun resolveWorkspaceEnvironmentVariables(request: Envvar.ResolveWorkspaceEnvironmentVariablesRequest,

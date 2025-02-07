@@ -4,7 +4,7 @@
  * See License.AGPL.txt in the project root for license information.
  */
 
-import { FunctionComponent, useCallback, useMemo, useState } from "react";
+import { FunctionComponent, useCallback, useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import { WorkspaceEntry } from "./WorkspaceEntry";
 import { ItemsList } from "../components/ItemsList";
@@ -20,11 +20,28 @@ import { Workspace, WorkspacePhase_Phase } from "@gitpod/public-api/lib/gitpod/v
 import { Button } from "@podkit/buttons/Button";
 import { VideoCarousel } from "./VideoCarousel";
 import { BlogBanners } from "./BlogBanners";
-import { BookOpen, Code } from "lucide-react";
+import { Book, BookOpen, Building, ChevronRight, Code, Video } from "lucide-react";
 import { ReactComponent as GitpodStrokedSVG } from "../icons/gitpod-stroked.svg";
-import { isGitpodIo } from "../utils";
 import PersonalizedContent from "./PersonalizedContent";
 import { useListenToWorkspacesWSMessages as useListenToWorkspacesStatusUpdates } from "../data/workspaces/listen-to-workspace-ws-messages";
+import { Subheading } from "@podkit/typography/Headings";
+import { useCurrentOrg } from "../data/organizations/orgs-query";
+import { Link } from "react-router-dom";
+import { useOrgSettingsQuery } from "../data/organizations/org-settings-query";
+import Modal, { ModalBaseFooter, ModalBody, ModalHeader } from "../components/Modal";
+import { VideoSection } from "../onboarding/VideoSection";
+import { trackVideoClick } from "../Analytics";
+import { cn } from "@podkit/lib/cn";
+import { useUpdateCurrentUserMutation } from "../data/current-user/update-mutation";
+import { useUserLoader } from "../hooks/use-user-loader";
+import Tooltip from "../components/Tooltip";
+import { useFeatureFlag } from "../data/featureflag-query";
+import { useInstallationConfiguration } from "../data/installation/installation-config-query";
+import { SuggestedOrgRepository, useOrgSuggestedRepos } from "../data/organizations/suggested-repositories-query";
+import { useSuggestedRepositories } from "../data/git-providers/suggested-repositories-query";
+import PillLabel from "../components/PillLabel";
+
+export const GETTING_STARTED_DISMISSAL_KEY = "workspace-list-getting-started";
 
 const WorkspacesPage: FunctionComponent = () => {
     const [limit, setLimit] = useState(50);
@@ -35,6 +52,12 @@ const WorkspacesPage: FunctionComponent = () => {
     const { data, isLoading } = useListWorkspacesQuery({ limit });
     const deleteInactiveWorkspaces = useDeleteInactiveWorkspacesMutation();
     useListenToWorkspacesStatusUpdates();
+
+    const { data: org } = useCurrentOrg();
+    const { data: orgSettings } = useOrgSettingsQuery();
+
+    const { user } = useUserLoader();
+    const { mutate: mutateUser } = useUpdateCurrentUserMutation();
 
     const { toast } = useToast();
 
@@ -53,6 +76,15 @@ const WorkspacesPage: FunctionComponent = () => {
             inactiveWorkspaces,
         };
     }, [data, limit]);
+
+    const handlePlay = () => {
+        trackVideoClick("create-new-workspace");
+    };
+
+    const { data: installationConfig } = useInstallationConfiguration();
+    const isDedicatedInstallation = !!installationConfig?.isDedicatedInstallation;
+
+    const isEnterpriseOnboardingEnabled = useFeatureFlag("enterprise_onboarding_enabled");
 
     const { filteredActiveWorkspaces, filteredInactiveWorkspaces } = useMemo(() => {
         const filteredActiveWorkspaces = activeWorkspaces.filter(
@@ -90,9 +122,219 @@ const WorkspacesPage: FunctionComponent = () => {
         } catch (e) {}
     }, [deleteInactiveWorkspaces, inactiveWorkspaces, toast]);
 
+    // initialize a state so that we can be optimistic and reactive, but also use an effect to sync the state with the user's actual profile
+    const [showGettingStarted, setShowGettingStarted] = useState<boolean | undefined>(undefined);
+    useEffect(() => {
+        if (!user?.profile?.coachmarksDismissals[GETTING_STARTED_DISMISSAL_KEY]) {
+            setShowGettingStarted(true);
+        } else {
+            setShowGettingStarted(false);
+        }
+    }, [user?.profile?.coachmarksDismissals]);
+
+    const { data: userSuggestedRepos } = useSuggestedRepositories({ excludeConfigurations: false });
+    const { data: orgSuggestedRepos } = useOrgSuggestedRepos();
+
+    const suggestedRepos = useMemo(() => {
+        const userSuggestions =
+            userSuggestedRepos
+                ?.filter((repo) => {
+                    const autostartMatch = user?.workspaceAutostartOptions.find((option) => {
+                        return option.cloneUrl.includes(repo.url);
+                    });
+                    return autostartMatch;
+                })
+                .slice(0, 3) ?? [];
+        const orgSuggestions = (orgSuggestedRepos ?? []).filter((repo) => {
+            return !userSuggestions.find((userSuggestion) => userSuggestion.configurationId === repo.configurationId); // don't show duplicates from user's autostart options
+        });
+
+        return [...userSuggestions, ...orgSuggestions].slice(0, 3);
+    }, [userSuggestedRepos, user, orgSuggestedRepos]);
+
+    const toggleGettingStarted = useCallback(
+        (show: boolean) => {
+            setShowGettingStarted(show);
+
+            mutateUser(
+                {
+                    additionalData: {
+                        profile: {
+                            coachmarksDismissals: {
+                                [GETTING_STARTED_DISMISSAL_KEY]: !show ? new Date().toISOString() : "",
+                            },
+                        },
+                    },
+                },
+                {
+                    onError: (e) => {
+                        toast("Failed to dismiss getting started");
+                        setShowGettingStarted(true);
+                    },
+                },
+            );
+        },
+        [mutateUser, toast],
+    );
+
+    const [isVideoModalVisible, setVideoModalVisible] = useState(false);
+    const handleVideoModalClose = useCallback(() => {
+        setVideoModalVisible(false);
+    }, []);
+
     return (
         <>
-            <Header title="Workspaces" subtitle="Manage recent and stopped workspaces." />
+            <Header
+                title="Workspaces"
+                subtitle="Manage, start and stop your personal development environments in the cloud."
+            />
+
+            {isEnterpriseOnboardingEnabled && isDedicatedInstallation && (
+                <>
+                    <div className="app-container flex flex-row items-center justify-end mt-4 mb-2">
+                        <Tooltip content="Toggle helpful resources for getting started with Gitpod">
+                            <Button
+                                variant="ghost"
+                                onClick={() => toggleGettingStarted(!showGettingStarted)}
+                                className="p-2"
+                            >
+                                <div className="flex flex-row items-center gap-2">
+                                    <Subheading className="text-pk-content-primary">Getting started</Subheading>
+                                    <ChevronRight
+                                        className={`transform transition-transform duration-100 ${
+                                            showGettingStarted ? "rotate-90" : ""
+                                        }`}
+                                        size={20}
+                                    />
+                                </div>
+                            </Button>
+                        </Tooltip>
+                    </div>
+
+                    {showGettingStarted && (
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:px-28 px-4 pb-4">
+                                <Card onClick={() => setVideoModalVisible(true)}>
+                                    <Video className="flex-shrink-0" size={24} />
+                                    <div className="min-w-0">
+                                        <CardTitle>Learn how Gitpod works</CardTitle>
+                                        <CardDescription>
+                                            We've put together resources for you to get the most our of Gitpod.
+                                        </CardDescription>
+                                    </div>
+                                </Card>
+
+                                {orgSettings?.onboardingSettings?.internalLink ? (
+                                    <Card href={orgSettings.onboardingSettings.internalLink} isLinkExternal>
+                                        <Building className="flex-shrink-0" size={24} />
+                                        <div className="min-w-0">
+                                            <CardTitle>Learn more about Gitpod at {org?.name}</CardTitle>
+                                            <CardDescription>
+                                                Read through the internal Gitpod landing page of your organization.
+                                            </CardDescription>
+                                        </div>
+                                    </Card>
+                                ) : (
+                                    <Card href={"/new?showExamples=true"}>
+                                        <Code className="flex-shrink-0" size={24} />
+                                        <div className="min-w-0">
+                                            <CardTitle>Open a sample repository</CardTitle>
+                                            <CardDescription>
+                                                Explore{" "}
+                                                {orgSuggestedRepos?.length
+                                                    ? "repositories recommended by your organization"
+                                                    : "a sample repository"}
+                                                to quickly experience Gitpod.
+                                            </CardDescription>
+                                        </div>
+                                    </Card>
+                                )}
+
+                                <Card href="https://www.gitpod.io/docs/introduction" isLinkExternal>
+                                    <Book className="flex-shrink-0" size={24} />
+                                    <div className="min-w-0">
+                                        <CardTitle>Visit the docs</CardTitle>
+                                        <CardDescription>
+                                            We have extensive documentation to help if you get stuck.
+                                        </CardDescription>
+                                    </div>
+                                </Card>
+                            </div>
+
+                            {suggestedRepos.length > 0 && (
+                                <>
+                                    <Subheading className="font-semibold text-pk-content-primary mb-2 app-container">
+                                        Suggested
+                                    </Subheading>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:px-28 px-4">
+                                        {suggestedRepos.map((repo) => {
+                                            const isOrgSuggested =
+                                                (repo as SuggestedOrgRepository).orgSuggested ?? false;
+
+                                            return (
+                                                <Card
+                                                    key={repo.url}
+                                                    href={`/new#${repo.url}`}
+                                                    className={cn(
+                                                        "border-[0.5px] hover:bg-pk-surface-tertiary transition-colors w-full",
+                                                        {
+                                                            "border-[#D79A45]": isOrgSuggested,
+                                                            "border-pk-border-base": !isOrgSuggested,
+                                                        },
+                                                    )}
+                                                >
+                                                    <div className="min-w-0 w-full space-y-1.5">
+                                                        <CardTitle className="flex flex-row items-center gap-2 w-full">
+                                                            <span className="truncate block min-w-0 text-base">
+                                                                {repo.configurationName || repo.repoName}
+                                                            </span>
+                                                            {isOrgSuggested && (
+                                                                <PillLabel
+                                                                    className="capitalize bg-kumquat-light shrink-0 text-sm"
+                                                                    type="warn"
+                                                                >
+                                                                    Recommended
+                                                                </PillLabel>
+                                                            )}
+                                                        </CardTitle>
+                                                        <CardDescription className="truncate text-sm opacity-75">
+                                                            {repo.url}
+                                                        </CardDescription>
+                                                    </div>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
+                    <Modal
+                        visible={isVideoModalVisible}
+                        onClose={handleVideoModalClose}
+                        containerClassName="min-[576px]:max-w-[600px]"
+                    >
+                        <ModalHeader>Demo video</ModalHeader>
+                        <ModalBody>
+                            <div className="flex flex-row items-center justify-center">
+                                <VideoSection
+                                    metadataVideoTitle="Gitpod demo"
+                                    playbackId="m01BUvCkTz7HzQKFoIcQmK00Rx5laLLoMViWBstetmvLs"
+                                    poster="https://i.ytimg.com/vi_webp/1ZBN-b2cIB8/maxresdefault.webp"
+                                    playerProps={{ onPlay: handlePlay, defaultHiddenCaptions: true }}
+                                    className="w-[535px] rounded-xl"
+                                />
+                            </div>
+                        </ModalBody>
+                        <ModalBaseFooter>
+                            <Button variant="secondary" onClick={handleVideoModalClose}>
+                                Close
+                            </Button>
+                        </ModalBaseFooter>
+                    </Modal>
+                </>
+            )}
 
             {deleteModalVisible && (
                 <ConfirmationModal
@@ -108,7 +350,11 @@ const WorkspacesPage: FunctionComponent = () => {
             {!isLoading &&
                 (activeWorkspaces.length > 0 || inactiveWorkspaces.length > 0 || searchTerm ? (
                     <>
-                        <div className={isGitpodIo() ? "!pl-0 app-container flex flex-1 flex-row" : "app-container"}>
+                        <div
+                            className={
+                                !isDedicatedInstallation ? "!pl-0 app-container flex flex-1 flex-row" : "app-container"
+                            }
+                        >
                             <div>
                                 <WorkspacesSearchBar
                                     limit={limit}
@@ -116,7 +362,7 @@ const WorkspacesPage: FunctionComponent = () => {
                                     onLimitUpdated={setLimit}
                                     onSearchTermUpdated={setSearchTerm}
                                 />
-                                <ItemsList className={isGitpodIo() ? "app-container xl:!pr-4 pb-40" : ""}>
+                                <ItemsList className={!isDedicatedInstallation ? "app-container xl:!pr-4 pb-40" : ""}>
                                     <div className="border-t border-gray-200 dark:border-gray-800"></div>
                                     {filteredActiveWorkspaces.map((info) => {
                                         return <WorkspaceEntry key={info.id} info={info} />;
@@ -126,13 +372,13 @@ const WorkspacesPage: FunctionComponent = () => {
                                         <div>
                                             <div
                                                 onClick={() => setShowInactive(!showInactive)}
-                                                className="flex cursor-pointer py-6 px-6 flex-row text-gray-400 bg-gray-50  hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl mb-2"
+                                                className="flex cursor-pointer p-6 flex-row bg-pk-surface-secondary hover:bg-pk-surface-tertiary text-pk-content-tertiary rounded-xl mb-2"
                                             >
                                                 <div className="pr-2">
                                                     <Arrow direction={showInactive ? "down" : "right"} />
                                                 </div>
                                                 <div className="flex flex-grow flex-col ">
-                                                    <div className="font-medium text-gray-500 dark:text-gray-200 truncate">
+                                                    <div className="font-medium truncate">
                                                         <span>Inactive Workspaces&nbsp;</span>
                                                         <span className="text-gray-400 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 rounded-xl px-2 py-0.5 text-xs">
                                                             {filteredInactiveWorkspaces.length}
@@ -181,7 +427,7 @@ const WorkspacesPage: FunctionComponent = () => {
                                 </ItemsList>
                             </div>
                             {/* Show Educational if user is in gitpodIo */}
-                            {isGitpodIo() && (
+                            {!isDedicatedInstallation && (
                                 <div className="max-xl:hidden border-l border-gray-200 dark:border-gray-800 pl-6 pt-5 pb-4 space-y-8">
                                     <VideoCarousel />
                                     <div className="flex flex-col gap-2">
@@ -237,6 +483,52 @@ const WorkspacesPage: FunctionComponent = () => {
 
 export default WorkspacesPage;
 
+const CardTitle = ({ children, className }: { className?: string; children: React.ReactNode }) => {
+    return <span className={cn("text-lg font-semibold text-pk-content-primary", className)}>{children}</span>;
+};
+const CardDescription = ({ children, className }: { className?: string; children: React.ReactNode }) => {
+    return <p className={cn("text-pk-content-secondary", className)}>{children}</p>;
+};
+type CardProps = {
+    children: React.ReactNode;
+    href?: string;
+    isLinkExternal?: boolean;
+    className?: string;
+    onClick?: () => void;
+};
+const Card = ({ children, href, isLinkExternal, className: classNameFromProps, onClick }: CardProps) => {
+    const className = cn(
+        "bg-pk-surface-secondary flex gap-3 py-4 px-5 rounded-xl text-left w-full h-full",
+        classNameFromProps,
+    );
+
+    if (href && isLinkExternal) {
+        return (
+            <a href={href} className={className} target="_blank" rel="noreferrer">
+                {children}
+            </a>
+        );
+    }
+
+    if (href) {
+        return (
+            <Link to={href} className={className}>
+                {children}
+            </Link>
+        );
+    }
+
+    if (onClick) {
+        return (
+            <button className={className} onClick={onClick}>
+                {children}
+            </button>
+        );
+    }
+
+    return <div className={className}>{children}</div>;
+};
+
 const sortWorkspaces = (a: Workspace, b: Workspace) => {
     const result = workspaceActiveDate(b).localeCompare(workspaceActiveDate(a));
     if (result === 0) {
@@ -247,7 +539,7 @@ const sortWorkspaces = (a: Workspace, b: Workspace) => {
 };
 
 /**
- * Given a WorkspaceInfo, return a ISO string of the last related activitiy
+ * Given a WorkspaceInfo, return a ISO string of the last related activity
  */
 function workspaceActiveDate(info: Workspace): string {
     return info.status!.phase!.lastTransitionTime!.toDate().toISOString();
