@@ -42,6 +42,7 @@ import {
     Configuration as GitpodServerInstallationConfiguration,
     NavigatorContext,
     RefType,
+    OrgEnvVar,
 } from "@gitpod/gitpod-protocol/lib/protocol";
 import { AuditLog as AuditLogProtocol } from "@gitpod/gitpod-protocol/lib/audit-log";
 import {
@@ -88,6 +89,7 @@ import {
     ConfigurationEnvironmentVariable,
     EnvironmentVariable,
     EnvironmentVariableAdmission,
+    OrganizationEnvironmentVariable,
     UserEnvironmentVariable,
 } from "@gitpod/public-api/lib/gitpod/v1/envvar_pb";
 import {
@@ -834,6 +836,14 @@ export class PublicAPIConverter {
         return result;
     }
 
+    toOrganizationEnvironmentVariable(envVar: OrgEnvVar): OrganizationEnvironmentVariable {
+        const result = new OrganizationEnvironmentVariable();
+        result.id = envVar.id || "";
+        result.name = envVar.name;
+        result.organizationId = envVar.orgId;
+        return result;
+    }
+
     toAdmission(shareable: boolean | undefined): AdmissionLevel {
         if (shareable) {
             return AdmissionLevel.EVERYONE;
@@ -1032,7 +1042,13 @@ export class PublicAPIConverter {
 
     fromWorkspaceSettings(settings?: DeepPartial<WorkspaceSettings>) {
         const result: Partial<
-            Pick<ProjectSettings, "workspaceClasses" | "restrictedWorkspaceClasses" | "restrictedEditorNames">
+            Pick<
+                ProjectSettings,
+                | "workspaceClasses"
+                | "restrictedWorkspaceClasses"
+                | "restrictedEditorNames"
+                | "enableDockerdAuthentication"
+            >
         > = {};
         if (settings?.workspaceClass) {
             result.workspaceClasses = {
@@ -1046,6 +1062,9 @@ export class PublicAPIConverter {
 
         if (settings?.restrictedEditorNames) {
             result.restrictedEditorNames = settings.restrictedEditorNames.filter((e) => !!e) as string[];
+        }
+        if (settings?.enableDockerdAuthentication !== undefined) {
+            result.enableDockerdAuthentication = settings.enableDockerdAuthentication;
         }
         return result;
     }
@@ -1087,13 +1106,11 @@ export class PublicAPIConverter {
 
     fromPartialConfiguration(configuration: PartialConfiguration): PartialProject {
         const prebuilds = this.fromPartialPrebuildSettings(configuration.prebuildSettings);
-        const { workspaceClasses, restrictedWorkspaceClasses, restrictedEditorNames } = this.fromWorkspaceSettings(
-            configuration.workspaceSettings,
-        );
+        const settings = this.fromWorkspaceSettings(configuration.workspaceSettings);
 
         const result: PartialProject = {
             id: configuration.id,
-            settings: {},
+            settings,
         };
 
         if (configuration.name !== undefined) {
@@ -1102,15 +1119,6 @@ export class PublicAPIConverter {
 
         if (Object.keys(prebuilds).length > 0) {
             result.settings!.prebuilds = prebuilds;
-        }
-        if (workspaceClasses && Object.keys(workspaceClasses).length > 0) {
-            result.settings!.workspaceClasses = workspaceClasses;
-        }
-        if (restrictedWorkspaceClasses) {
-            result.settings!.restrictedWorkspaceClasses = restrictedWorkspaceClasses;
-        }
-        if (restrictedEditorNames) {
-            result.settings!.restrictedEditorNames = restrictedEditorNames;
         }
 
         return result;
@@ -1135,6 +1143,11 @@ export class PublicAPIConverter {
                 permissions: permissions.map((permission) => this.toOrganizationPermission(permission)),
             })),
             maxParallelRunningWorkspaces: settings.maxParallelRunningWorkspaces ?? 0,
+            onboardingSettings: {
+                internalLink: settings?.onboardingSettings?.internalLink ?? undefined,
+                recommendedRepositories: settings?.onboardingSettings?.recommendedRepositories ?? [],
+            },
+            annotateGitCommits: settings.annotateGitCommits ?? false,
         });
     }
 
@@ -1209,6 +1222,9 @@ export class PublicAPIConverter {
         }
         if (projectSettings?.restrictedEditorNames) {
             result.restrictedEditorNames = projectSettings.restrictedEditorNames;
+        }
+        if (projectSettings?.enableDockerdAuthentication !== undefined) {
+            result.enableDockerdAuthentication = projectSettings.enableDockerdAuthentication;
         }
         return result;
     }

@@ -17,6 +17,7 @@ import { SortableTableHead, TableSortOrder } from "@podkit/tables/SortableTable"
 import { LoadingState } from "@podkit/loading/LoadingState";
 import { Button } from "@podkit/buttons/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@podkit/select/Select";
+import { useOrgSettingsQuery } from "../../data/organizations/org-settings-query";
 
 type Props = {
     configurations: Configuration[];
@@ -51,6 +52,8 @@ export const RepositoryTable: FC<Props> = ({
     onLoadNextPage,
     onSort,
 }) => {
+    const { data: settings } = useOrgSettingsQuery();
+
     return (
         <>
             {/* Search/Filter bar */}
@@ -86,7 +89,7 @@ export const RepositoryTable: FC<Props> = ({
                         <TableHeader>
                             <TableRow>
                                 <SortableTableHead
-                                    className="w-52"
+                                    className="w-auto md:w-64"
                                     columnName="name"
                                     sortOrder={sortBy === "name" ? sortOrder : undefined}
                                     onSort={onSort}
@@ -118,14 +121,24 @@ export const RepositoryTable: FC<Props> = ({
                         </TableHeader>
                         <TableBody>
                             {configurations.map((configuration) => {
-                                return <RepositoryListItem key={configuration.id} configuration={configuration} />;
+                                return (
+                                    <RepositoryListItem
+                                        key={configuration.id}
+                                        configuration={configuration}
+                                        isSuggested={
+                                            settings?.onboardingSettings?.recommendedRepositories.includes(
+                                                configuration.id,
+                                            ) ?? false
+                                        }
+                                    />
+                                );
                             })}
                         </TableBody>
                     </Table>
                 ) : (
                     <div
                         className={cn(
-                            "w-full flex justify-center rounded-xl bg-gray-100 dark:bg-gray-800 px-4 py-10 animate-fade-in-fast",
+                            "w-full flex justify-center rounded-xl bg-pk-surface-secondary px-4 py-10 animate-fade-in-fast",
                         )}
                     >
                         <Subheading className="max-w-md">No results found. Try adjusting your search terms.</Subheading>

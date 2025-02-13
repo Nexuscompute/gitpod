@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Gitpod GmbH. All rights reserved.
+// Copyright (c) 2025 Gitpod GmbH. All rights reserved.
 // Licensed under the GNU Affero General Public License (AGPL).
 // See License.AGPL.txt in the project root for license information.
 
@@ -91,6 +91,46 @@ func (s *ProxyEnvironmentVariableServiceHandler) CreateConfigurationEnvironmentV
 
 func (s *ProxyEnvironmentVariableServiceHandler) DeleteConfigurationEnvironmentVariable(ctx context.Context, req *connect_go.Request[v1.DeleteConfigurationEnvironmentVariableRequest]) (*connect_go.Response[v1.DeleteConfigurationEnvironmentVariableResponse], error) {
 	resp, err := s.Client.DeleteConfigurationEnvironmentVariable(ctx, req.Msg)
+	if err != nil {
+		// TODO(milan): Convert to correct status code
+		return nil, err
+	}
+
+	return connect_go.NewResponse(resp), nil
+}
+
+func (s *ProxyEnvironmentVariableServiceHandler) ListOrganizationEnvironmentVariables(ctx context.Context, req *connect_go.Request[v1.ListOrganizationEnvironmentVariablesRequest]) (*connect_go.Response[v1.ListOrganizationEnvironmentVariablesResponse], error) {
+	resp, err := s.Client.ListOrganizationEnvironmentVariables(ctx, req.Msg)
+	if err != nil {
+		// TODO(milan): Convert to correct status code
+		return nil, err
+	}
+
+	return connect_go.NewResponse(resp), nil
+}
+
+func (s *ProxyEnvironmentVariableServiceHandler) UpdateOrganizationEnvironmentVariable(ctx context.Context, req *connect_go.Request[v1.UpdateOrganizationEnvironmentVariableRequest]) (*connect_go.Response[v1.UpdateOrganizationEnvironmentVariableResponse], error) {
+	resp, err := s.Client.UpdateOrganizationEnvironmentVariable(ctx, req.Msg)
+	if err != nil {
+		// TODO(milan): Convert to correct status code
+		return nil, err
+	}
+
+	return connect_go.NewResponse(resp), nil
+}
+
+func (s *ProxyEnvironmentVariableServiceHandler) CreateOrganizationEnvironmentVariable(ctx context.Context, req *connect_go.Request[v1.CreateOrganizationEnvironmentVariableRequest]) (*connect_go.Response[v1.CreateOrganizationEnvironmentVariableResponse], error) {
+	resp, err := s.Client.CreateOrganizationEnvironmentVariable(ctx, req.Msg)
+	if err != nil {
+		// TODO(milan): Convert to correct status code
+		return nil, err
+	}
+
+	return connect_go.NewResponse(resp), nil
+}
+
+func (s *ProxyEnvironmentVariableServiceHandler) DeleteOrganizationEnvironmentVariable(ctx context.Context, req *connect_go.Request[v1.DeleteOrganizationEnvironmentVariableRequest]) (*connect_go.Response[v1.DeleteOrganizationEnvironmentVariableResponse], error) {
+	resp, err := s.Client.DeleteOrganizationEnvironmentVariable(ctx, req.Msg)
 	if err != nil {
 		// TODO(milan): Convert to correct status code
 		return nil, err

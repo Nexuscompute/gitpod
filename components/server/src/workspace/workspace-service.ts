@@ -568,13 +568,10 @@ export class WorkspaceService {
                 daysToLive = daysToLive * 2;
             }
             deletionEligibilityTime.setDate(deletionEligibilityTime.getDate() + daysToLive);
-            if (
-                workspace.deletionEligibilityTime &&
-                workspace.deletionEligibilityTime > deletionEligibilityTime.toISOString()
-            ) {
+            if (new Date().toISOString() > deletionEligibilityTime.toISOString()) {
                 log.warn(
                     { userId, workspaceId, instanceId: instance?.id },
-                    "[updateDeletionEligibilityTime] Prevented moving deletion eligibility time backwards",
+                    "[updateDeletionEligibilityTime] Prevented moving deletion eligibility time to the past",
                     {
                         hasGitChanges,
                         timestamps: new TrustedValue({
@@ -590,6 +587,22 @@ export class WorkspaceService {
                 );
                 return;
             }
+
+            log.info(
+                { userId, workspaceId, instanceId: instance?.id },
+                "[updateDeletionEligibilityTime] Updating deletion eligibility time for regular workspace",
+                {
+                    hasGitChanges,
+                    timestamps: new TrustedValue({
+                        deletionEligibilityTime: deletionEligibilityTime.toISOString(),
+                        instanceStoppingTime: instance?.stoppingTime,
+                        instanceStartedTime: instance?.startedTime,
+                        instanceCreationTime: instance?.creationTime,
+                        workspaceCreationTime: workspace.creationTime,
+                        lastActive,
+                    }),
+                },
+            );
             await this.db.updatePartial(workspaceId, {
                 deletionEligibilityTime: deletionEligibilityTime.toISOString(),
             });
@@ -1391,9 +1404,17 @@ export class WorkspaceService {
         });
     }
 
-    public async validateImageRef(ctx: TraceContext, user: User, imageRef: string) {
+    public async validateImageRef(ctx: TraceContext, user: User, imageRef: string, organizationId?: string) {
         try {
-            return await this.workspaceStarter.resolveBaseImage(ctx, user, imageRef);
+            return await this.workspaceStarter.resolveBaseImage(
+                ctx,
+                user,
+                imageRef,
+                undefined,
+                undefined,
+                undefined,
+                organizationId,
+            );
         } catch (e) {
             // see https://github.com/gitpod-io/gitpod/blob/f3e41f8d86234e4101edff2199c54f50f8cbb656/components/image-builder-mk3/pkg/orchestrator/orchestrator.go#L561
             // TODO(ak) ideally we won't check a message (subject to change)
@@ -1407,8 +1428,8 @@ export class WorkspaceService {
             ) {
                 let message = details;
                 // strip confusing prefix
-                if (details.startsWith("cannt resolve base image ref: ")) {
-                    message = details.substring("cannt resolve base image ref: ".length);
+                if (details.startsWith("can't resolve base image ref: ")) {
+                    message = details.substring("can't resolve base image ref: ".length);
                 }
                 throw new ApplicationError(ErrorCodes.BAD_REQUEST, message);
             }

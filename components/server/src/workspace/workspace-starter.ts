@@ -32,6 +32,7 @@ import {
     CommitContext,
     Disposable,
     DisposableCollection,
+    EnvVar,
     GitCheckoutInfo,
     GitpodServer,
     GitpodToken,
@@ -411,6 +412,7 @@ export class WorkspaceStarter {
 
                         const envVars = await this.envVarService.resolveEnvVariables(
                             user.id,
+                            workspace.organizationId,
                             workspace.projectId,
                             workspace.type,
                             workspace.context,
@@ -630,7 +632,7 @@ export class WorkspaceStarter {
             }
 
             // build workspace image
-            const additionalAuth = await this.getAdditionalImageAuth(envVars);
+            const additionalAuth = envVars.gitpodImageAuth || new Map<string, string>();
             instance = await this.buildWorkspaceImage(
                 { span },
                 user,
@@ -837,23 +839,6 @@ export class WorkspaceStarter {
         return undefined;
     }
 
-    private async getAdditionalImageAuth(envVars: ResolvedEnvVars): Promise<Map<string, string>> {
-        const res = new Map<string, string>();
-        const imageAuth = envVars.project.find((e) => e.name === "GITPOD_IMAGE_AUTH");
-        if (!imageAuth) {
-            return res;
-        }
-
-        const imageAuthValue = (await this.projectDB.getProjectEnvironmentVariableValues([imageAuth]))[0];
-
-        (imageAuthValue.value || "")
-            .split(",")
-            .map((e) => e.trim().split(":"))
-            .filter((e) => e.length == 2)
-            .forEach((e) => res.set(e[0], e[1]));
-        return res;
-    }
-
     /**
      * failInstanceStart properly fails a workspace instance if something goes wrong before the instance ever reaches
      * workspace manager. In this case we need to make sure we also fulfil the tasks of the bridge (e.g. for prebuilds).
@@ -914,6 +899,7 @@ export class WorkspaceStarter {
                         prebuildID: prebuild.id,
                         projectID: prebuild.projectId,
                         workspaceID: workspace.id,
+                        organizationID: workspace.organizationId,
                     });
                 }
             }
@@ -1562,6 +1548,11 @@ export class WorkspaceStarter {
             sysEnvvars.push(ev);
         }
 
+        const organizationSettings = await this.orgService.getSettings(user.id, workspace.organizationId);
+        sysEnvvars.push(
+            newEnvVar("GITPOD_COMMIT_ANNOTATION_ENABLED", organizationSettings.annotateGitCommits ? "true" : "false"),
+        );
+
         const orgIdEnv = new EnvironmentVariable();
         orgIdEnv.setName("GITPOD_DEFAULT_WORKSPACE_IMAGE");
         orgIdEnv.setValue(await this.configProvider.getDefaultImage(workspace.organizationId));
@@ -1582,6 +1573,14 @@ export class WorkspaceStarter {
         sysEnvvars.push(isSetJavaXmx);
         sysEnvvars.push(isSetJavaProcessorCount);
         sysEnvvars.push(disableJetBrainsLocalPortForwarding);
+
+        const workspaceName = Workspace.fromWorkspaceName(workspace.description);
+        if (workspaceName && workspaceName.length > 0) {
+            const workspaceNameEnv = new EnvironmentVariable();
+            workspaceNameEnv.setName("GITPOD_WORKSPACE_NAME");
+            workspaceNameEnv.setValue(workspaceName);
+            sysEnvvars.push(workspaceNameEnv);
+        }
         const spec = new StartWorkspaceSpec();
         await createGitpodTokenPromise;
         spec.setEnvvarsList(envvars);
@@ -1608,7 +1607,6 @@ export class WorkspaceStarter {
             spec.setTimeout(defaultTimeout);
             spec.setMaximumLifetime(workspaceLifetime);
             if (allowSetTimeout) {
-                const organizationSettings = await this.orgService.getSettings(user.id, workspace.organizationId);
                 if (organizationSettings.timeoutSettings?.inactivity) {
                     try {
                         const timeout = WorkspaceTimeoutDuration.validate(
@@ -2029,6 +2027,7 @@ export class WorkspaceStarter {
         workspace?: Workspace,
         instance?: WorkspaceInstance,
         region?: WorkspaceRegion,
+        organizationId?: string,
     ) {
         const req = new ResolveBaseImageRequest();
         req.setRef(imageRef);
@@ -2037,6 +2036,15 @@ export class WorkspaceStarter {
         const auth = new BuildRegistryAuth();
         auth.setTotal(allowAll);
         req.setAuth(auth);
+
+        // if the image resolution is for an organization, we also include the organization's set up env vars
+        if (organizationId) {
+            const envVars = await this.envVarService.listOrgEnvVarsWithValues(user.id, organizationId);
+
+            const additionalAuth = EnvVar.getGitpodImageAuth(envVars);
+            additionalAuth.forEach((val, key) => auth.getAdditionalMap().set(key, val));
+        }
+
         const client = await this.getImageBuilderClient(user, workspace, instance, region);
         return client.resolveBaseImage({ span: ctx.span }, req);
     }

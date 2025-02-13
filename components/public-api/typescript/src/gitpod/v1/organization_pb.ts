@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Gitpod GmbH. All rights reserved.
+ * Copyright (c) 2025 Gitpod GmbH. All rights reserved.
  * Licensed under the GNU Affero General Public License (AGPL).
  * See License.AGPL.txt in the project root for license information.
  */
@@ -244,6 +244,53 @@ export class RoleRestrictionEntry extends Message<RoleRestrictionEntry> {
 }
 
 /**
+ * @generated from message gitpod.v1.OnboardingSettings
+ */
+export class OnboardingSettings extends Message<OnboardingSettings> {
+  /**
+   * internal_link is the link to an internal onboarding page for the organization, possibly featuring a custom onboarding guide and other resources
+   *
+   * @generated from field: optional string internal_link = 1;
+   */
+  internalLink?: string;
+
+  /**
+   * recommended_repositories are the repositories that are recommended for new org members
+   *
+   * @generated from field: repeated string recommended_repositories = 2;
+   */
+  recommendedRepositories: string[] = [];
+
+  constructor(data?: PartialMessage<OnboardingSettings>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "gitpod.v1.OnboardingSettings";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "internal_link", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 2, name: "recommended_repositories", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OnboardingSettings {
+    return new OnboardingSettings().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OnboardingSettings {
+    return new OnboardingSettings().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OnboardingSettings {
+    return new OnboardingSettings().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OnboardingSettings | PlainMessage<OnboardingSettings> | undefined, b: OnboardingSettings | PlainMessage<OnboardingSettings> | undefined): boolean {
+    return proto3.util.equals(OnboardingSettings, a, b);
+  }
+}
+
+/**
  * @generated from message gitpod.v1.OrganizationSettings
  */
 export class OrganizationSettings extends Message<OrganizationSettings> {
@@ -294,6 +341,16 @@ export class OrganizationSettings extends Message<OrganizationSettings> {
    */
   maxParallelRunningWorkspaces = 0;
 
+  /**
+   * @generated from field: gitpod.v1.OnboardingSettings onboarding_settings = 10;
+   */
+  onboardingSettings?: OnboardingSettings;
+
+  /**
+   * @generated from field: bool annotate_git_commits = 11;
+   */
+  annotateGitCommits = false;
+
   constructor(data?: PartialMessage<OrganizationSettings>) {
     super();
     proto3.util.initPartial(data, this);
@@ -311,6 +368,8 @@ export class OrganizationSettings extends Message<OrganizationSettings> {
     { no: 7, name: "timeout_settings", kind: "message", T: TimeoutSettings },
     { no: 8, name: "role_restrictions", kind: "message", T: RoleRestrictionEntry, repeated: true },
     { no: 9, name: "max_parallel_running_workspaces", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 10, name: "onboarding_settings", kind: "message", T: OnboardingSettings },
+    { no: 11, name: "annotate_git_commits", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OrganizationSettings {
@@ -648,6 +707,20 @@ export class UpdateOrganizationSettingsRequest extends Message<UpdateOrganizatio
    */
   maxParallelRunningWorkspaces?: number;
 
+  /**
+   * onboarding_settings are the settings for the organization's onboarding
+   *
+   * @generated from field: optional gitpod.v1.OnboardingSettings onboarding_settings = 16;
+   */
+  onboardingSettings?: OnboardingSettings;
+
+  /**
+   * annotate_git_commits specifies whether to annotate git commits created in Gitpod workspaces with the gitpod host
+   *
+   * @generated from field: optional bool annotate_git_commits = 17;
+   */
+  annotateGitCommits?: boolean;
+
   constructor(data?: PartialMessage<UpdateOrganizationSettingsRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -669,6 +742,8 @@ export class UpdateOrganizationSettingsRequest extends Message<UpdateOrganizatio
     { no: 12, name: "role_restrictions", kind: "message", T: RoleRestrictionEntry, repeated: true },
     { no: 13, name: "update_role_restrictions", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 15, name: "max_parallel_running_workspaces", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 16, name: "onboarding_settings", kind: "message", T: OnboardingSettings, opt: true },
+    { no: 17, name: "annotate_git_commits", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdateOrganizationSettingsRequest {
