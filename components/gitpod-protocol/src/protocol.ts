@@ -233,7 +233,7 @@ export namespace NamedWorkspaceFeatureFlag {
     }
 }
 
-export type EnvVar = UserEnvVar | ProjectEnvVarWithValue | EnvVarWithValue;
+export type EnvVar = UserEnvVar | ProjectEnvVarWithValue | OrgEnvVarWithValue | EnvVarWithValue;
 
 export interface EnvVarWithValue {
     name: string;
@@ -242,12 +242,22 @@ export interface EnvVarWithValue {
 
 export interface ProjectEnvVarWithValue extends EnvVarWithValue {
     id?: string;
+    /** If a project-scoped env var is "censored", it is only visible in Prebuilds */
     censored: boolean;
 }
 
 export interface ProjectEnvVar extends Omit<ProjectEnvVarWithValue, "value"> {
     id: string;
     projectId: string;
+}
+
+export interface OrgEnvVarWithValue extends EnvVarWithValue {
+    id?: string;
+}
+
+export interface OrgEnvVar extends Omit<OrgEnvVarWithValue, "value"> {
+    id: string;
+    orgId: string;
 }
 
 export interface UserEnvVarValue extends EnvVarWithValue {
@@ -260,6 +270,38 @@ export interface UserEnvVar extends UserEnvVarValue {
     deleted?: boolean;
 }
 
+export namespace EnvVar {
+    export const GITPOD_IMAGE_AUTH_ENV_VAR_NAME = "GITPOD_IMAGE_AUTH";
+    /**
+     * - GITPOD_IMAGE_AUTH is documented https://www.gitpod.io/docs/configure/workspaces/workspace-image#use-a-private-docker-image
+     */
+    export const WhiteListFromReserved = [GITPOD_IMAGE_AUTH_ENV_VAR_NAME];
+
+    export function is(data: any): data is EnvVar {
+        return data.hasOwnProperty("name") && data.hasOwnProperty("value");
+    }
+
+    /**
+     * Extracts the "host:credentials" pairs from the GITPOD_IMAGE_AUTH environment variable.
+     * @param envVars
+     * @returns A map of host to credentials
+     */
+    export function getGitpodImageAuth(envVars: EnvVarWithValue[]): Map<string, string> {
+        const res = new Map<string, string>();
+        const imageAuth = envVars.find((e) => e.name === EnvVar.GITPOD_IMAGE_AUTH_ENV_VAR_NAME);
+        if (!imageAuth) {
+            return res;
+        }
+
+        (imageAuth.value || "")
+            .split(",")
+            .map((e) => e.trim().split(":"))
+            .filter((e) => e.length == 2)
+            .forEach((e) => res.set(e[0], e[1]));
+        return res;
+    }
+}
+
 export namespace UserEnvVar {
     export const DELIMITER = "/";
     export const WILDCARD_ASTERISK = "*";
@@ -268,13 +310,17 @@ export namespace UserEnvVar {
     const WILDCARD_SHARP = "#"; // TODO(gpl) Where does this come from? Bc we have/had patterns as part of URLs somewhere, maybe...?
     const MIN_PATTERN_SEGMENTS = 2;
 
-    /**
-     * - GITPOD_IMAGE_AUTH is documented https://www.gitpod.io/docs/configure/workspaces/workspace-image#use-a-private-docker-image
-     */
-    export const WhiteListFromReserved = ["GITPOD_IMAGE_AUTH"];
-
     function isWildcard(c: string): boolean {
         return c === WILDCARD_ASTERISK || c === WILDCARD_SHARP;
+    }
+
+    export function is(data: any): data is UserEnvVar {
+        return (
+            EnvVar.is(data) &&
+            data.hasOwnProperty("id") &&
+            data.hasOwnProperty("userId") &&
+            data.hasOwnProperty("repositoryPattern")
+        );
     }
 
     /**
@@ -284,7 +330,7 @@ export namespace UserEnvVar {
     export function validate(variable: UserEnvVarValue): string | undefined {
         const name = variable.name;
         const pattern = variable.repositoryPattern;
-        if (!WhiteListFromReserved.includes(name) && name.startsWith("GITPOD_")) {
+        if (!EnvVar.WhiteListFromReserved.includes(name) && name.startsWith("GITPOD_")) {
             return "Name with prefix 'GITPOD_' is reserved.";
         }
         if (name.trim() === "") {
@@ -739,6 +785,20 @@ export namespace Workspace {
             return ws.context.revision && ws.context.revision.substr(0, 8);
         }
         return undefined;
+    }
+
+    const NAME_PREFIX = "named:";
+    export function fromWorkspaceName(name?: Workspace["description"]): string | undefined {
+        if (name?.startsWith(NAME_PREFIX)) {
+            return name.slice(NAME_PREFIX.length);
+        }
+        return undefined;
+    }
+    export function toWorkspaceName(name?: Workspace["description"]): string {
+        if (!name || name?.trim().length === 0) {
+            return "no-name";
+        }
+        return `${NAME_PREFIX}${name}`;
     }
 }
 

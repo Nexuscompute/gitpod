@@ -39,7 +39,7 @@ export default function Preferences() {
     const [dotfileRepo, setDotfileRepo] = useState<string>(user?.dotfileRepo || "");
 
     const [workspaceTimeout, setWorkspaceTimeout] = useState<string>(
-        converter.toDurationString(user?.workspaceTimeoutSettings?.inactivity),
+        converter.toDurationStringOpt(user?.workspaceTimeoutSettings?.inactivity) || "",
     );
     const [timeoutUpdating, setTimeoutUpdating] = useState(false);
     const [creationError, setCreationError] = useState<Error>();
@@ -157,7 +157,7 @@ export default function Preferences() {
                             <LoadingButton
                                 type="submit"
                                 loading={updateDotfileRepo.isLoading}
-                                disabled={updateDotfileRepo.isLoading || (dotfileRepo === user?.dotfileRepo ?? "")}
+                                disabled={updateDotfileRepo.isLoading || dotfileRepo === user?.dotfileRepo}
                             >
                                 Save
                             </LoadingButton>
@@ -173,7 +173,7 @@ export default function Preferences() {
                         <Alert type="warning" className="mb-4">
                             The currently selected organization does not allow members to set custom workspace timeouts,
                             so for workspaces created in it, its default timeout of{" "}
-                            {converter.toDurationString(settings?.timeoutSettings?.inactivity)} will be used.
+                            {converter.toDurationStringOpt(settings?.timeoutSettings?.inactivity) || ""} will be used.
                         </Alert>
                     )}
 
@@ -201,9 +201,9 @@ export default function Preferences() {
                                         loading={timeoutUpdating}
                                         disabled={
                                             workspaceTimeout ===
-                                                converter.toDurationString(
-                                                    user?.workspaceTimeoutSettings?.inactivity,
-                                                ) ?? ""
+                                            (converter.toDurationStringOpt(
+                                                user?.workspaceTimeoutSettings?.inactivity,
+                                            ) || "")
                                         }
                                     >
                                         Save

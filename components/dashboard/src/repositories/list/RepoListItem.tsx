@@ -12,11 +12,13 @@ import { LinkButton } from "@podkit/buttons/LinkButton";
 import type { Configuration } from "@gitpod/public-api/lib/gitpod/v1/configuration_pb";
 import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react";
 import { TableCell, TableRow } from "@podkit/tables/Table";
+import PillLabel from "../../components/PillLabel";
 
 type Props = {
     configuration: Configuration;
+    isSuggested: boolean;
 };
-export const RepositoryListItem: FC<Props> = ({ configuration }) => {
+export const RepositoryListItem: FC<Props> = ({ configuration, isSuggested }) => {
     const url = usePrettyRepoURL(configuration.cloneUrl);
     const prebuildsEnabled = !!configuration.prebuildSettings?.enabled;
     const created =
@@ -27,8 +29,18 @@ export const RepositoryListItem: FC<Props> = ({ configuration }) => {
     return (
         <TableRow>
             <TableCell>
-                <div className="flex flex-col gap-1 break-words w-52">
-                    <Text className="font-semibold">{configuration.name}</Text>
+                <div className="flex flex-col gap-1 break-words w-auto md:w-64">
+                    <Text className="font-semibold flex items-center justify-between gap-1">
+                        {configuration.name}
+                        {isSuggested && (
+                            <PillLabel
+                                className="capitalize bg-kumquat-light shrink-0 text-sm hidden xl:block"
+                                type="warn"
+                            >
+                                Suggested
+                            </PillLabel>
+                        )}
+                    </Text>
                     {/* We show the url on a 2nd line for smaller screens since we hide the column */}
                     <TextMuted className="inline md:hidden text-sm break-all">{url}</TextMuted>
                 </div>

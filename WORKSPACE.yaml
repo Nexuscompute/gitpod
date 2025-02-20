@@ -7,21 +7,21 @@ defaultArgs:
   publishToNPM: true
   publishToJBMarketplace: true
   localAppVersion: unknown
-  codeCommit: e3618f085acb50b742485bf017936c476da04b74
-  codeVersion: 1.96.0
+  codeCommit: b889dadbf401a55d02e2fb98981d9c7832f07ea2
+  codeVersion: 1.96.3
   codeQuality: stable
   codeWebExtensionCommit: 3953e8160fffa97dd4a4509542b4bf7ff9b704cd
   xtermCommit: d547d4ff4590b66c3ea24342fc62e3afcf6b77bc
   noVerifyJBPlugin: false
-  intellijDownloadUrl: "https://download.jetbrains.com/idea/ideaIU-2024.3.tar.gz"
-  golandDownloadUrl: "https://download.jetbrains.com/go/goland-2024.3.tar.gz"
-  pycharmDownloadUrl: "https://download.jetbrains.com/python/pycharm-professional-2024.3.tar.gz"
-  phpstormDownloadUrl: "https://download.jetbrains.com/webide/PhpStorm-2024.3.tar.gz"
-  rubymineDownloadUrl: "https://download.jetbrains.com/ruby/RubyMine-2024.3.tar.gz"
-  webstormDownloadUrl: "https://download.jetbrains.com/webstorm/WebStorm-2024.3.tar.gz"
+  intellijDownloadUrl: "https://download.jetbrains.com/idea/ideaIU-2024.3.3.tar.gz"
+  golandDownloadUrl: "https://download.jetbrains.com/go/goland-2024.3.3.tar.gz"
+  pycharmDownloadUrl: "https://download.jetbrains.com/python/pycharm-professional-2024.3.3.tar.gz"
+  phpstormDownloadUrl: "https://download.jetbrains.com/webide/PhpStorm-2024.3.3.tar.gz"
+  rubymineDownloadUrl: "https://download.jetbrains.com/ruby/RubyMine-2024.3.3.tar.gz"
+  webstormDownloadUrl: "https://download.jetbrains.com/webstorm/WebStorm-2024.3.3.tar.gz"
   riderDownloadUrl: "https://download.jetbrains.com/rider/JetBrains.Rider-2024.1.4.tar.gz"
-  clionDownloadUrl: "https://download.jetbrains.com/cpp/CLion-2024.3.tar.gz"
-  rustroverDownloadUrl: "https://download.jetbrains.com/rustrover/RustRover-2024.3.tar.gz"
+  clionDownloadUrl: "https://download.jetbrains.com/cpp/CLion-2024.3.3.tar.gz"
+  rustroverDownloadUrl: "https://download.jetbrains.com/rustrover/RustRover-2024.3.4.tar.gz"
   jbBackendVersion: "latest"
   dockerVersion: "20.10.24"
   dockerComposeVersion: "2.27.0-gitpod.0"
@@ -38,10 +38,11 @@ defaultVariant:
     - GOARCH=amd64
     - DOCKER_DEFAULT_PLATFORM=linux/amd64
     - NODE_OPTIONS=--max_old_space_size=8192
+    - LEEWAY_BUILD=true
   srcs:
     exclude:
       # Make sure we don't include node_modules/**/*.ts by accident
       - "**/node_modules/**"
   config:
     go:
-      lintCommand: ["sh", "-c", "golangci-lint run --disable govet,errcheck,typecheck,staticcheck,structcheck -e '.*declared but not used.*' --allow-parallel-runners --timeout 15m"]
+      lintCommand: ["sh", "-c", "golangci-lint run --disable govet,errcheck,staticcheck --allow-parallel-runners --timeout 15m"]

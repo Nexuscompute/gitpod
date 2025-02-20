@@ -245,6 +245,7 @@ export class OrganizationServiceAPI implements ServiceImpl<typeof OrganizationSe
         const settings = await this.orgService.getSettings(ctxUserId(), req.organizationId);
         const response = new GetOrganizationSettingsResponse();
         response.settings = this.apiConverter.toOrganizationSettings(settings);
+
         return response;
     }
 
@@ -265,13 +266,23 @@ export class OrganizationServiceAPI implements ServiceImpl<typeof OrganizationSe
                 "updateRestrictedEditorNames is required to be true to update restrictedEditorNames",
             );
         }
+
+        if (!req.updateAllowedWorkspaceClasses && req.allowedWorkspaceClasses.length > 0) {
+            throw new ApplicationError(
+                ErrorCodes.BAD_REQUEST,
+                "updateAllowedWorkspaceClasses is required to be true to update allowedWorkspaceClasses",
+            );
+        }
+        if (req.updateAllowedWorkspaceClasses) {
+            update.allowedWorkspaceClasses = req.allowedWorkspaceClasses;
+        }
+
         if (typeof req.workspaceSharingDisabled === "boolean") {
             update.workspaceSharingDisabled = req.workspaceSharingDisabled;
         }
         if (typeof req.defaultWorkspaceImage === "string") {
             update.defaultWorkspaceImage = req.defaultWorkspaceImage;
         }
-        update.allowedWorkspaceClasses = req.allowedWorkspaceClasses;
         if (req.updatePinnedEditorVersions) {
             update.pinnedEditorVersions = req.pinnedEditorVersions;
         }
@@ -332,6 +343,24 @@ export class OrganizationServiceAPI implements ServiceImpl<typeof OrganizationSe
             }
 
             update.maxParallelRunningWorkspaces = req.maxParallelRunningWorkspaces;
+        }
+
+        if (req.onboardingSettings) {
+            update.onboardingSettings = this.apiConverter.fromOnboardingSettings(req.onboardingSettings);
+
+            if (
+                !req.onboardingSettings.updateRecommendedRepositories &&
+                req.onboardingSettings.recommendedRepositories.length > 0
+            ) {
+                throw new ApplicationError(
+                    ErrorCodes.BAD_REQUEST,
+                    "recommendedRepositories can only be set when updateRecommendedRepositories is true",
+                );
+            }
+        }
+
+        if (req.annotateGitCommits !== undefined) {
+            update.annotateGitCommits = req.annotateGitCommits;
         }
 
         if (Object.keys(update).length === 0) {

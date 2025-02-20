@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/utils/pointer"
 
 	wsk8s "github.com/gitpod-io/gitpod/common-go/kubernetes"
@@ -62,6 +63,7 @@ type startWorkspaceContext struct {
 	IDEPort        int32             `json:"idePort"`
 	SupervisorPort int32             `json:"supervisorPort"`
 	Headless       bool              `json:"headless"`
+	ServerVersion  *version.Info     `json:"serverVersion"`
 }
 
 // createWorkspacePod creates the actual workspace pod based on the definite workspace pod and appropriate
@@ -278,11 +280,12 @@ func createDefiniteWorkspacePod(sctx *startWorkspaceContext) (*corev1.Pod, error
 		"prometheus.io/scrape": "true",
 		"prometheus.io/path":   "/metrics",
 		"prometheus.io/port":   strconv.Itoa(int(sctx.IDEPort)),
-		"container.apparmor.security.beta.kubernetes.io/workspace": "unconfined",
 		// prevent cluster-autoscaler from removing a node
 		// https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node
 		"cluster-autoscaler.kubernetes.io/safe-to-evict": "false",
 	}
+
+	configureAppamor(sctx, annotations, workspaceContainer)
 
 	for k, v := range sctx.Workspace.Annotations {
 		annotations[k] = v
@@ -593,7 +596,8 @@ func createWorkspaceEnvironment(sctx *startWorkspaceContext) ([]corev1.EnvVar, e
 			"GITPOD_EXTERNAL_EXTENSIONS",
 			"GITPOD_WORKSPACE_CLASS_INFO",
 			"GITPOD_IDE_ALIAS",
-			"GITPOD_RLIMIT_CORE":
+			"GITPOD_RLIMIT_CORE",
+			"GITPOD_IMAGE_AUTH":
 			// these variables are allowed - don't skip them
 		default:
 			if strings.HasPrefix(e.Name, "GITPOD_") {
@@ -612,7 +616,7 @@ func createWorkspaceEnvironment(sctx *startWorkspaceContext) ([]corev1.EnvVar, e
 	if err != nil {
 		return nil, xerrors.Errorf("cannot create environment: %w", err)
 	}
-	memoryInMegabyte := res.Memory().Value() / (1000 * 1000)
+	memoryInMegabyte := res.Memory().Value() / (1024 * 1024)
 	result = append(result, corev1.EnvVar{Name: "GITPOD_MEMORY", Value: strconv.FormatInt(memoryInMegabyte, 10)})
 
 	cpuCount := res.Cpu().Value()
@@ -689,7 +693,7 @@ func createDefaultSecurityContext() (*corev1.SecurityContext, error) {
 	return res, nil
 }
 
-func newStartWorkspaceContext(ctx context.Context, cfg *config.Configuration, ws *workspacev1.Workspace) (res *startWorkspaceContext, err error) {
+func newStartWorkspaceContext(ctx context.Context, cfg *config.Configuration, ws *workspacev1.Workspace, serverVersion *version.Info) (res *startWorkspaceContext, err error) {
 	// we deliberately do not shadow ctx here as we need the original context later to extract the TraceID
 	span, _ := tracing.FromContext(ctx, "newStartWorkspaceContext")
 	defer tracing.FinishSpan(span, &err)
@@ -711,7 +715,19 @@ func newStartWorkspaceContext(ctx context.Context, cfg *config.Configuration, ws
 		IDEPort:        23000,
 		SupervisorPort: 22999,
 		Headless:       ws.IsHeadless(),
+		ServerVersion:  serverVersion,
 	}, nil
+}
+
+func configureAppamor(sctx *startWorkspaceContext, annotations map[string]string, workspaceContainer *corev1.Container) {
+	// pre K8s 1.30 we need to set the apparmor profile to unconfined as an annotation
+	if sctx.ServerVersion.Major <= "1" && sctx.ServerVersion.Minor < "30" {
+		annotations["container.apparmor.security.beta.kubernetes.io/workspace"] = "unconfined"
+	} else {
+		workspaceContainer.SecurityContext.AppArmorProfile = &corev1.AppArmorProfile{
+			Type: corev1.AppArmorProfileTypeUnconfined,
+		}
+	}
 }
 
 // validCookieChars contains all characters which may occur in an HTTP Cookie value (unicode \u0021 through \u007E),

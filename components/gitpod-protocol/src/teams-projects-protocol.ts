@@ -28,6 +28,11 @@ export interface ProjectSettings {
     restrictedWorkspaceClasses?: string[];
 
     restrictedEditorNames?: string[];
+
+    /**
+     * Enable automatic authentication for docker daemon with all credentials specified in GITPOD_IMAGE_AUTH
+     */
+    enableDockerdAuthentication?: boolean;
 }
 export namespace PrebuildSettings {
     export type BranchStrategy = "default-branch" | "all-branches" | "matched-branches";
@@ -236,6 +241,12 @@ export interface OrganizationSettings {
 
     // max number of parallel running workspaces per user
     maxParallelRunningWorkspaces?: number;
+
+    // onboarding settings for the organization
+    onboardingSettings?: OnboardingSettings;
+
+    // whether to add a special annotation to commits that are created through Gitpod
+    annotateGitCommits?: boolean;
 }
 
 export type TimeoutSettings = {
@@ -258,6 +269,30 @@ export namespace TeamMemberRole {
     export function isValid(role: unknown): role is TeamMemberRole {
         return VALID_ORG_MEMBER_ROLES.includes(role as TeamMemberRole);
     }
+}
+
+export interface OnboardingSettings {
+    /**
+     * the link to an internal onboarding page for the organization, possibly featuring a custom onboarding guide and other resources
+     */
+    internalLink?: string;
+
+    /**
+     * the repository IDs of the repositories that are recommended for members to start with
+     */
+    recommendedRepositories?: string[];
+
+    /**
+     * the welcome message for new members of the organization
+     */
+    welcomeMessage?: WelcomeMessage;
+}
+
+export interface WelcomeMessage {
+    enabled?: boolean;
+    featuredMemberId?: string;
+    featuredMemberResolvedAvatarUrl?: string;
+    message?: string;
 }
 
 export type TeamMemberInfo = OrgMemberInfo;

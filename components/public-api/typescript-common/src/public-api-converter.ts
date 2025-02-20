@@ -42,6 +42,7 @@ import {
     Configuration as GitpodServerInstallationConfiguration,
     NavigatorContext,
     RefType,
+    OrgEnvVar,
 } from "@gitpod/gitpod-protocol/lib/protocol";
 import { AuditLog as AuditLogProtocol } from "@gitpod/gitpod-protocol/lib/audit-log";
 import {
@@ -55,6 +56,10 @@ import {
     Organization as ProtocolOrganization,
     OrgMemberPermission,
     OrgMemberRole,
+    RoleRestrictions,
+    TimeoutSettings as TimeoutSettingsProtocol,
+    OnboardingSettings as OnboardingSettingsProtocol,
+    WelcomeMessage as WelcomeMessageProtocol,
 } from "@gitpod/gitpod-protocol/lib/teams-projects-protocol";
 import type { DeepPartial } from "@gitpod/gitpod-protocol/lib/util/deep-partial";
 import { parseGoDurationToMs } from "@gitpod/gitpod-protocol/lib/util/timeutil";
@@ -88,6 +93,7 @@ import {
     ConfigurationEnvironmentVariable,
     EnvironmentVariable,
     EnvironmentVariableAdmission,
+    OrganizationEnvironmentVariable,
     UserEnvironmentVariable,
 } from "@gitpod/public-api/lib/gitpod/v1/envvar_pb";
 import {
@@ -111,11 +117,15 @@ import {
     OnboardingState,
 } from "@gitpod/public-api/lib/gitpod/v1/installation_pb";
 import {
+    OnboardingSettings,
+    OnboardingSettings_WelcomeMessage,
     Organization,
     OrganizationMember,
     OrganizationPermission,
     OrganizationRole,
     OrganizationSettings,
+    RoleRestrictionEntry,
+    TimeoutSettings,
 } from "@gitpod/public-api/lib/gitpod/v1/organization_pb";
 import {
     Prebuild,
@@ -834,6 +844,14 @@ export class PublicAPIConverter {
         return result;
     }
 
+    toOrganizationEnvironmentVariable(envVar: OrgEnvVar): OrganizationEnvironmentVariable {
+        const result = new OrganizationEnvironmentVariable();
+        result.id = envVar.id || "";
+        result.name = envVar.name;
+        result.organizationId = envVar.orgId;
+        return result;
+    }
+
     toAdmission(shareable: boolean | undefined): AdmissionLevel {
         if (shareable) {
             return AdmissionLevel.EVERYONE;
@@ -1030,9 +1048,70 @@ export class PublicAPIConverter {
         }
     }
 
+    fromOrgMemberRoleString(role: string): OrgMemberRole {
+        switch (role) {
+            case "owner":
+            case "member":
+            case "collaborator":
+                return role;
+            default:
+                throw new Error("invalid org member role");
+        }
+    }
+
+    fromTimeoutSettings(timeoutSettings: TimeoutSettings): TimeoutSettingsProtocol {
+        const result: TimeoutSettingsProtocol = {
+            denyUserTimeouts: timeoutSettings.denyUserTimeouts,
+        };
+        if (timeoutSettings.inactivity) {
+            result.inactivity = this.toDurationString(timeoutSettings.inactivity);
+        }
+        return result;
+    }
+
+    fromRoleRestrictions(roleRestrictions: RoleRestrictionEntry[]): RoleRestrictions {
+        const result: RoleRestrictions = {};
+        for (const roleRestriction of roleRestrictions) {
+            const role = this.fromOrgMemberRole(roleRestriction.role);
+            const permissions = roleRestriction.permissions.map((p) => this.fromOrganizationPermission(p));
+            result[role] = permissions;
+        }
+        return result;
+    }
+
+    fromOnboardingSettings(onboardingSettings: OnboardingSettings): OnboardingSettingsProtocol {
+        const result: OnboardingSettingsProtocol = {
+            internalLink: onboardingSettings.internalLink,
+        };
+
+        if (onboardingSettings.welcomeMessage) {
+            result.welcomeMessage = this.fromWelcomeMessage(onboardingSettings.welcomeMessage);
+        }
+
+        if (onboardingSettings.updateRecommendedRepositories) {
+            result.recommendedRepositories = onboardingSettings.recommendedRepositories;
+        }
+
+        return result;
+    }
+
+    fromWelcomeMessage(welcomeMessage: OnboardingSettings_WelcomeMessage): WelcomeMessageProtocol {
+        return {
+            enabled: welcomeMessage.enabled,
+            message: welcomeMessage.message,
+            featuredMemberId: welcomeMessage.featuredMemberId,
+        };
+    }
+
     fromWorkspaceSettings(settings?: DeepPartial<WorkspaceSettings>) {
         const result: Partial<
-            Pick<ProjectSettings, "workspaceClasses" | "restrictedWorkspaceClasses" | "restrictedEditorNames">
+            Pick<
+                ProjectSettings,
+                | "workspaceClasses"
+                | "restrictedWorkspaceClasses"
+                | "restrictedEditorNames"
+                | "enableDockerdAuthentication"
+            >
         > = {};
         if (settings?.workspaceClass) {
             result.workspaceClasses = {
@@ -1046,6 +1125,9 @@ export class PublicAPIConverter {
 
         if (settings?.restrictedEditorNames) {
             result.restrictedEditorNames = settings.restrictedEditorNames.filter((e) => !!e) as string[];
+        }
+        if (settings?.enableDockerdAuthentication !== undefined) {
+            result.enableDockerdAuthentication = settings.enableDockerdAuthentication;
         }
         return result;
     }
@@ -1087,13 +1169,11 @@ export class PublicAPIConverter {
 
     fromPartialConfiguration(configuration: PartialConfiguration): PartialProject {
         const prebuilds = this.fromPartialPrebuildSettings(configuration.prebuildSettings);
-        const { workspaceClasses, restrictedWorkspaceClasses, restrictedEditorNames } = this.fromWorkspaceSettings(
-            configuration.workspaceSettings,
-        );
+        const settings = this.fromWorkspaceSettings(configuration.workspaceSettings);
 
         const result: PartialProject = {
             id: configuration.id,
-            settings: {},
+            settings,
         };
 
         if (configuration.name !== undefined) {
@@ -1102,15 +1182,6 @@ export class PublicAPIConverter {
 
         if (Object.keys(prebuilds).length > 0) {
             result.settings!.prebuilds = prebuilds;
-        }
-        if (workspaceClasses && Object.keys(workspaceClasses).length > 0) {
-            result.settings!.workspaceClasses = workspaceClasses;
-        }
-        if (restrictedWorkspaceClasses) {
-            result.settings!.restrictedWorkspaceClasses = restrictedWorkspaceClasses;
-        }
-        if (restrictedEditorNames) {
-            result.settings!.restrictedEditorNames = restrictedEditorNames;
         }
 
         return result;
@@ -1124,17 +1195,49 @@ export class PublicAPIConverter {
             pinnedEditorVersions: settings.pinnedEditorVersions || {},
             restrictedEditorNames: settings.restrictedEditorNames || [],
             defaultRole: settings.defaultRole || undefined,
-            timeoutSettings: {
-                inactivity: settings.timeoutSettings?.inactivity
-                    ? this.toDuration(settings.timeoutSettings?.inactivity)
-                    : undefined,
-                denyUserTimeouts: settings.timeoutSettings?.denyUserTimeouts,
-            },
-            roleRestrictions: Object.entries(settings.roleRestrictions ?? {}).map(([role, permissions]) => ({
-                role: this.toOrgMemberRole(role as OrgMemberRole),
-                permissions: permissions.map((permission) => this.toOrganizationPermission(permission)),
-            })),
+            timeoutSettings: settings.timeoutSettings ? this.toTimeoutSettings(settings.timeoutSettings) : undefined,
+            roleRestrictions: settings.roleRestrictions
+                ? this.toRoleRestrictions(settings.roleRestrictions)
+                : undefined,
             maxParallelRunningWorkspaces: settings.maxParallelRunningWorkspaces ?? 0,
+            onboardingSettings: settings?.onboardingSettings
+                ? this.toOnboardingSettings(settings.onboardingSettings)
+                : undefined,
+            annotateGitCommits: settings.annotateGitCommits ?? false,
+        });
+    }
+
+    toTimeoutSettings(settings: TimeoutSettingsProtocol): TimeoutSettings {
+        return new TimeoutSettings({
+            inactivity: settings.inactivity ? this.toDuration(settings.inactivity) : undefined,
+            denyUserTimeouts: settings.denyUserTimeouts,
+        });
+    }
+
+    toRoleRestrictions(roleRestrictions: RoleRestrictions): RoleRestrictionEntry[] {
+        return Object.entries(roleRestrictions ?? {}).map(
+            ([role, permissions]) =>
+                new RoleRestrictionEntry({
+                    role: this.toOrgMemberRole(role as OrgMemberRole),
+                    permissions: permissions.map((permission) => this.toOrganizationPermission(permission)),
+                }),
+        );
+    }
+
+    toOnboardingSettings(settings: OnboardingSettingsProtocol): OnboardingSettings {
+        return new OnboardingSettings({
+            internalLink: settings.internalLink,
+            welcomeMessage: settings.welcomeMessage ? this.toWelcomeMessage(settings.welcomeMessage) : undefined,
+            recommendedRepositories: settings.recommendedRepositories,
+        });
+    }
+
+    toWelcomeMessage(settings: WelcomeMessageProtocol): OnboardingSettings_WelcomeMessage {
+        return new OnboardingSettings_WelcomeMessage({
+            enabled: settings.enabled,
+            message: settings.message,
+            featuredMemberId: settings.featuredMemberId,
+            featuredMemberResolvedAvatarUrl: settings.featuredMemberResolvedAvatarUrl,
         });
     }
 
@@ -1209,6 +1312,9 @@ export class PublicAPIConverter {
         }
         if (projectSettings?.restrictedEditorNames) {
             result.restrictedEditorNames = projectSettings.restrictedEditorNames;
+        }
+        if (projectSettings?.enableDockerdAuthentication !== undefined) {
+            result.enableDockerdAuthentication = projectSettings.enableDockerdAuthentication;
         }
         return result;
     }
@@ -1506,9 +1612,10 @@ export class PublicAPIConverter {
      * `Duration.nanos` is ignored
      * @returns a string like "1h2m3s", valid time units are `s`, `m`, `h`
      */
-    toDurationString(duration?: PartialMessage<Duration>): string {
-        const seconds = duration?.seconds || 0;
+    toDurationString(duration: PartialMessage<Duration>): string {
+        const seconds = duration.seconds || 0;
         if (seconds === 0) {
+            // "" is our "default value" for durations on the server side
             return "";
         }
         const totalMilliseconds = Number(seconds) * 1000;
@@ -1522,6 +1629,13 @@ export class PublicAPIConverter {
         return `${hours > 0 ? hours + "h" : ""}${minutes > 0 ? minutes + "m" : ""}${
             secondsResult > 0 ? secondsResult + "s" : ""
         }`;
+    }
+
+    toDurationStringOpt(duration?: PartialMessage<Duration>): string | undefined {
+        if (duration === undefined) {
+            return undefined;
+        }
+        return this.toDurationString(duration);
     }
 
     toUser(from: UserProtocol): User {
@@ -1595,6 +1709,13 @@ export class PublicAPIConverter {
             seconds,
             nanos,
         });
+    }
+
+    toDurationOpt(from: string | undefined): Duration | undefined {
+        if (from === undefined) {
+            return undefined;
+        }
+        return this.toDuration(from);
     }
 
     toWorkspaceClass(cls: SupportedWorkspaceClass): WorkspaceClass {

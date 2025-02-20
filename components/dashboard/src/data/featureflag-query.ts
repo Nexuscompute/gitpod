@@ -24,6 +24,8 @@ const featureFlags = {
     showBrowserExtensionPromotion: false,
     enable_experimental_jbtb: false,
     enabled_configuration_prebuild_full_clone: false,
+    enterprise_onboarding_enabled: false,
+    commit_annotation_setting_enabled: false,
 };
 
 type FeatureFlags = typeof featureFlags;
